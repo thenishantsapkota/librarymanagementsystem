@@ -1,8 +1,12 @@
+#CODE_REVISION(2020/11/2)
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import  *
 import sys
 import MySQLdb
+import datetime
+from datetime import datetime  
+from datetime import timedelta 
 
 
 from PyQt5.uic import loadUiType
@@ -24,9 +28,14 @@ class MainApp(QMainWindow , ui):
         self.Show_Category_ComboBox()
         self.Show_Authors_ComboBox()
         self.Show_Publishers_ComboBox()
+        self.Show_Books_ComboBox()
+        self.Show_Students_ComboBox()
+        self.Show_RollNo_ComboBox()
 
         self.Show_All_Students()
         self.Show_All_Books()
+        self.Show_All_Borrows()
+        self.Show_Returns()
 
     def Handle_UI_Changes(self):
         self.Hide_Themes()
@@ -41,6 +50,7 @@ class MainApp(QMainWindow , ui):
         self.pushButton_3.clicked.connect(self.Open_Users_Tab)
         self.pushButton_4.clicked.connect(self.Open_Settings_Tab)
         self.pushButton_7.clicked.connect(self.Add_New_Books)
+        self.pushButton_6.clicked.connect(self.Borrow_Books)
         self.pushButton_14.clicked.connect(self.Add_Category)
         self.pushButton_15.clicked.connect(self.Add_Author)
         self.pushButton_16.clicked.connect(self.Add_Publishers)
@@ -60,6 +70,11 @@ class MainApp(QMainWindow , ui):
         self.pushButton_26.clicked.connect(self.Search_Students)
         self.pushButton_25.clicked.connect(self.Edit_Student)
         self.pushButton_27.clicked.connect(self.Delete_Student)
+        self.pushButton_23.clicked.connect(self.Open_Return)
+        self.pushButton_44.clicked.connect(self.Return_Books)
+        self.pushButton_28.clicked.connect(self.Delete_Returns)
+        self.pushButton_29.clicked.connect(self.Enable_Delete)
+        self.pushButton_30.clicked.connect(self.Disable_Delte)
 
 
     def Show_Themes(self):
@@ -79,6 +94,7 @@ class MainApp(QMainWindow , ui):
 
     def Open_Todo(self):
         self.tabWidget.setCurrentIndex(0)
+        
     
     def Open_Books_Tab(self):
         self.tabWidget.setCurrentIndex(1)
@@ -91,7 +107,9 @@ class MainApp(QMainWindow , ui):
     
     def Open_Book_List_Tab(self):
         self.tabWidget.setCurrentIndex(4)
-
+    
+    def Open_Return(self):
+        self.tabWidget.setCurrentIndex(5)
    ############################
     ######BOOKS################
     def Show_All_Books(self):
@@ -139,17 +157,17 @@ class MainApp(QMainWindow , ui):
         self.comboBox_5.setCurrentIndex(0)
         self.comboBox_3.setCurrentIndex(0)
         self.Show_All_Books()
-    
+        self.Show_Books_ComboBox()
 
     def Search_Books(self):
         self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
         self.cur = self.db.cursor()
 
-        book_title = self.lineEdit_7.text()
+        book_code = self.lineEdit_7.text()
         
         
-        sql = '''SELECT * FROM book WHERE book_name = %s'''
-        self.cur.execute(sql,[(book_title)])
+        sql = '''SELECT * FROM book WHERE book_code = %s'''
+        self.cur.execute(sql,[(book_code)])
 
         data = self.cur.fetchone()
         self.lineEdit_9.setText(data[1])
@@ -189,18 +207,19 @@ class MainApp(QMainWindow , ui):
         self.lineEdit_6.setText('')
         self.lineEdit_7.setText('')
         self.Show_All_Books()
+        self.Show_Books_ComboBox()
 
     
     def Delete_Books(self):
         self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
         self.cur = self.db.cursor()
 
-        book_title = self.lineEdit_7.text()
+        book_code = self.lineEdit_7.text()
         
         warning = QMessageBox.warning(self , 'Delete Book', "Are You Sure You warWant to Delete this book?", QMessageBox.Yes | QMessageBox.No)
         if warning == QMessageBox.Yes :
-            sql = '''DELETE FROM book WHERE book_name=%s'''
-            self.cur.execute(sql, [(book_title)])
+            sql = '''DELETE FROM book WHERE book_code=%s'''
+            self.cur.execute(sql, [(book_code)])
             self.db.commit()
             self.statusBar().showMessage('Book Deleted Sucessfully!')
             self.lineEdit_9.setText('')
@@ -212,9 +231,137 @@ class MainApp(QMainWindow , ui):
             self.lineEdit_6.setText('')
             self.lineEdit_7.setText('')
             self.Show_All_Books()
+            self.Show_Books_ComboBox()
+
+    def Borrow_Books(self):
+        self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
+        self.cur = self.db.cursor()
+
+        book_name = self.comboBox_9.currentText()
+        book_code = self.comboBox_14.currentText()
+        student_name = self.comboBox_12.currentText()
+        student_rollno = self.comboBox_13.currentText()
+        days_borrowed_for = self.comboBox_2.currentIndex()
+        return_date = (datetime.date(datetime.now())+timedelta(weeks=days_borrowed_for))
+        
+        self.cur.execute(''' 
+                INSERT INTO borrow(book_name , book_code , student_name , student_rollno , return_date)
+                VALUES (%s , %s , %s , %s , %s)
+            ''',(book_name , book_code , student_name , student_rollno , return_date))
+        self.db.commit()
+        self.statusBar().showMessage('Book Borrowed Successfully!')
+        self.comboBox_12.setCurrentIndex(0)
+        self.comboBox_13.setCurrentIndex(0)
+        self.comboBox_14.setCurrentIndex(0)
+        self.comboBox_2.setCurrentIndex(0)
+        self.Show_All_Borrows()
+    
+    def Show_All_Borrows(self):
+        self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
+        self.cur = self.db.cursor()
+
+        self.cur.execute('''SELECT book_name , book_code , student_name , student_rollno , return_date FROM borrow''')
+        data = self.cur.fetchall()
+        #print(data)
+        self.tableWidget_2.setRowCount(0)
+        self.tableWidget_2.insertRow(0)
+
+        for row ,form in enumerate(data):
+            for column ,item in enumerate(form):
+                self.tableWidget_2.setItem(row , column ,QTableWidgetItem(str(item)))
+                column += 1
+
+            row_position = self.tableWidget_2.rowCount()
+            self.tableWidget_2.insertRow(row_position)
+
+    def Return_Books(self):
+        self.db = MySQLdb.connect(host = 'localhost' , user = 'root' , password = 'toor' , db='library')
+        self.cur = self.db.cursor()
+
+        book_name = self.comboBox_22.currentText()
+        book_code = self.comboBox_15.currentText()
+        student_name = self.comboBox_10.currentText()
+        student_rollno = self.comboBox_11.currentText()
+        returned_date = self.lineEdit_2.text()
+
+        self.cur.execute(''' 
+                INSERT INTO returned(book_name, book_code , student_name , student_rollno , returned_date)
+                VALUES (%s , %s , %s , %s , %s)
+            ''',(book_name , book_code , student_name , student_rollno , returned_date))
+        self.db.commit()
+        self.statusBar().showMessage('Book Returned Successfully!')
+        self.comboBox_22.setCurrentIndex(0)
+        self.comboBox_15.setCurrentIndex(0)
+        self.comboBox_10.setCurrentIndex(0)
+        self.comboBox_11.setCurrentIndex(0)
+        self.lineEdit_2.setText('')
+        self.Delete_Borrowed_When_Returned()
+        self.Show_Returns()
 
 
-    ############################
+    def Delete_Borrowed_When_Returned(self):
+        self.db = MySQLdb.connect(host = 'localhost' , user = 'root' , password = 'toor' , db='library')
+        self.cur = self.db.cursor()
+        
+        book_name = self.comboBox_22.currentText()
+        book_code = self.comboBox_15.currentText()
+        student_name = self.comboBox_10.currentText()
+        student_rollno = self.comboBox_11.currentText()
+        returned_date = self.lineEdit_2.text()
+
+        sql = '''DELETE FROM borrow WHERE student_name=%s'''
+        self.cur.execute(sql, [(student_name)])
+        self.db.commit()
+        self.Show_All_Borrows()
+    
+    def Show_Returns(self):
+        self.db = MySQLdb.connect(host = 'localhost' , user = 'root' , password = 'toor' , db='library')
+        self.cur = self.db.cursor()
+
+        self.cur.execute('''SELECT book_name , book_code , student_name , student_rollno , returned_date FROM returned''')
+        data = self.cur.fetchall()
+        #print(data)
+        self.tableWidget_16.setRowCount(0)
+        self.tableWidget_16.insertRow(0)
+
+        for row ,form in enumerate(data):
+            for column ,item in enumerate(form):
+                self.tableWidget_16.setItem(row , column ,QTableWidgetItem(str(item)))
+                column += 1
+
+            row_position = self.tableWidget_16.rowCount()
+            self.tableWidget_16.insertRow(row_position)
+    
+    def Enable_Delete(self):
+        self.comboBox_16.setEnabled(True)
+    
+    def Disable_Delte(self):
+        self.comboBox_16.setEnabled(False)
+
+    def Delete_Returns(self):
+        self.db = MySQLdb.connect(host = 'localhost' , user = 'root' , password = 'toor' , db='library')
+        self.cur = self.db.cursor()
+
+        book_name = self.comboBox_22.currentText()
+        book_code = self.comboBox_16.currentText()
+        student_name = self.comboBox_10.currentText()
+        student_rollno = self.comboBox_11.currentText()
+        returned_date = self.lineEdit_2.text()
+
+        warning = QMessageBox.warning(self , 'Delete Return Data', "Are You Sure You Want to Delete this return data?", QMessageBox.Yes | QMessageBox.No)
+        if warning == QMessageBox.Yes :
+            sql = '''DELETE FROM returned WHERE book_code=%s'''
+            self.cur.execute(sql, [(book_code)])
+            self.db.commit()
+            self.comboBox_22.setCurrentIndex(0)
+            self.comboBox_15.setCurrentIndex(0)
+            self.comboBox_10.setCurrentIndex(0)
+            self.comboBox_11.setCurrentIndex(0)
+            self.lineEdit_2.setText('')
+            self.Show_Returns()
+
+
+   ############################
     ######USERS################
     def Add_User(self):
         self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
@@ -398,7 +545,7 @@ class MainApp(QMainWindow , ui):
                 row_position = self.tableWidget_5.rowCount()
                 self.tableWidget_5.insertRow(row_position)
 
-    ############################
+    #############COMBO BOXES###############
     ######SETTINGS STUFF################
     def Show_Category_ComboBox(self):
         self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
@@ -435,7 +582,51 @@ class MainApp(QMainWindow , ui):
             #print(publisher[0])
             self.comboBox_3.addItem(publisher[0])
             self.comboBox_8.addItem(publisher[0])
+
+
+    def Show_Books_ComboBox(self):
+        self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
+        self.cur = self.db.cursor()
+
+        self.cur.execute('''SELECT book_name FROM book''')
+        data = self.cur.fetchall()
+        self.comboBox_9.clear()
+        for book in data:
+            self.comboBox_9.addItem(book[0])
+            self.comboBox_22.addItem(book[0])
+        
+        self.cur.execute('''SELECT book_code FROM book ''')
+        data1 = self.cur.fetchall()
+        self.comboBox_14.clear()
+        for bookcode in data1:
+            self.comboBox_14.addItem(bookcode[0])
+            self.comboBox_15.addItem(bookcode[0])
+            self.comboBox_16.addItem(bookcode[0])
+
+    def Show_Students_ComboBox(self):
+        self.db = MySQLdb.connect(host = 'localhost', user='root' , password='toor', db='library')
+        self.cur = self.db.cursor()
+
+
+        self.cur.execute('''SELECT student_name FROM students''')
+        data = self.cur.fetchall()
+        self.comboBox_10.clear()
+        for student in data:
+            self.comboBox_12.addItem(student[0])
+            self.comboBox_10.addItem(student[0])
     
+
+    def Show_RollNo_ComboBox(self):
+        self.db = MySQLdb.connect(host = 'localhost', user='root' , password='toor', db='library')
+        self.cur = self.db.cursor()
+
+        self.cur.execute('''SELECT student_rollno FROM students''')
+        data = self.cur.fetchall()
+        self.comboBox_11.clear()
+        for rollno in data:
+            self.comboBox_11.addItem(rollno[0])
+            self.comboBox_13.addItem(rollno[0])
+
     
     ############################
     ######THEMES################
@@ -487,6 +678,9 @@ class MainApp(QMainWindow , ui):
         self.lineEdit_31.setText('')
         self.lineEdit_32.setText('')
         self.Show_All_Students()
+        self.Show_Students_ComboBox()
+        self.Show_RollNo_ComboBox()
+
 
     def Show_All_Students(self):
         self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
@@ -508,69 +702,99 @@ class MainApp(QMainWindow , ui):
 
 
     def Search_Students(self):
-        self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
-        self.cur = self.db.cursor()
-        
-        studentname = self.lineEdit_27.text()
+        try:
+            self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
+            self.cur = self.db.cursor()
+            
+            if self.lineEdit_27.text() != '':
+                studentrollno = self.lineEdit_27.text()
 
-        sql = '''SELECT * FROM students WHERE student_name=%s'''
-        self.cur.execute(sql, [(studentname)])
-        data = self.cur.fetchone()
-        #print(data)
+                sql = '''SELECT * FROM students WHERE student_rollno=%s'''
+                self.cur.execute(sql, [(studentrollno)])
+                data = self.cur.fetchone()
+                #print(data)
 
-        self.lineEdit_24.setText(data[1])
-        self.lineEdit_26.setText(data[2])
-        self.lineEdit_35.setText(data[3])
-        self.lineEdit_33.setText(data[4])
-        self.lineEdit_34.setText(data[5])
+                self.lineEdit_24.setText(data[1])
+                self.lineEdit_26.setText(data[2])
+                self.lineEdit_35.setText(data[3])
+                self.lineEdit_33.setText(data[4])
+                self.lineEdit_34.setText(data[5])
+            else:
+                warning = QMessageBox.warning(self , 'Warning', "Provide Data to Search!", QMessageBox.Ok)
+        except:
+            warning = QMessageBox.warning(self , 'Warning', "Student with that Roll Number doesn't exist", QMessageBox.Ok)
+            pass
+            self.lineEdit_27.setText('')
 
     def Edit_Student(self):
-        self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
-        self.cur = self.db.cursor()
-        
-        studentnameoriginal = self.lineEdit_27.text()
-        studentname = self.lineEdit_24.text()
-        studentrollno = self.lineEdit_26.text()
-        studentdob = self.lineEdit_35.text()
-        studentyear = self.lineEdit_33.text()
-        studentemail = self.lineEdit_34.text()
+        try:
+            self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
+            self.cur = self.db.cursor()
+            
+            studentnameoriginal = self.lineEdit_27.text()
+            studentname = self.lineEdit_24.text()
+            studentrollno = self.lineEdit_26.text()
+            studentdob = self.lineEdit_35.text()
+            studentyear = self.lineEdit_33.text()
+            studentemail = self.lineEdit_34.text()
 
-        self.cur.execute('''
-            UPDATE students SET student_name = %s , student_rollno = %s , student_dob = %s , student_year = %s , student_email = %s WHERE student_name = %s
-        ''',(studentname, studentrollno, studentdob , studentyear , studentemail , studentnameoriginal))
-        self.db.commit()
-        self.statusBar().showMessage('Student Information Updated Sucessfully!')
-        self.lineEdit_24.setText('')
-        self.lineEdit_26.setText('')
-        self.lineEdit_35.setText('')
-        self.lineEdit_33.setText('')
-        self.lineEdit_34.setText('')
-        self.Show_All_Students()
+            if self.lineEdit_24.text() != '':
+                self.cur.execute('''
+                    UPDATE students SET student_name = %s , student_rollno = %s , student_dob = %s , student_year = %s , student_email = %s WHERE student_name = %s
+                ''',(studentname, studentrollno, studentdob , studentyear , studentemail , studentnameoriginal))
+                self.db.commit()
+                self.statusBar().showMessage('Student Information Updated Sucessfully!')
+                self.lineEdit_24.setText('')
+                self.lineEdit_26.setText('')
+                self.lineEdit_35.setText('')
+                self.lineEdit_33.setText('')
+                self.lineEdit_34.setText('')
+                self.Show_All_Students()
+                self.Show_Students_ComboBox()
+                self.Show_RollNo_ComboBox()
+            else:
+                warning = QMessageBox.warning(self , 'Warning', "There is Nothing to edit", QMessageBox.Ok)
+        
+        except:
+            pass
 
     def Delete_Student(self):
-        self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
-        self.cur = self.db.cursor()
+        try:
+            if self.lineEdit_24.text() != '':
+                self.db = MySQLdb.connect(host ='localhost', user='root', password='toor' , db='library')
+                self.cur = self.db.cursor()
 
-        studentname = self.lineEdit_24.text()
-        studentrollno = self.lineEdit_26.text()
-        studentdob = self.lineEdit_35.text()
-        studentyear = self.lineEdit_33.text()
-        studentemail = self.lineEdit_34.text()
+                studentname = self.lineEdit_24.text()
+                studentrollno = self.lineEdit_26.text()
+                studentdob = self.lineEdit_35.text()
+                studentyear = self.lineEdit_33.text()
+                studentemail = self.lineEdit_34.text()
+                
+                warning = QMessageBox.warning(self , 'Delete Student Data', "Are You Sure You Want to Delete this student data?", QMessageBox.Yes | QMessageBox.No)
+                if warning == QMessageBox.Yes :
+                    sql = '''DELETE FROM students WHERE student_name=%s'''
+                    self.cur.execute(sql, [(studentname)])
+                    self.db.commit()
+                    self.statusBar().showMessage('Student Data Deleted Sucessfully!')
+                    self.lineEdit_24.setText('')
+                    self.lineEdit_26.setText('')
+                    self.lineEdit_35.setText('')
+                    self.lineEdit_33.setText('')
+                    self.lineEdit_34.setText('')
+                    self.lineEdit_27.setText('')
+                    self.Show_All_Students()
+                    self.Show_Students_ComboBox()
+                    self.Show_RollNo_ComboBox()
+                else:
+                    pass
+            else:
+                warning = QMessageBox.warning(self , 'Warning', "There is Nothing to delete", QMessageBox.Ok)
         
-        warning = QMessageBox.warning(self , 'Delete Student Data', "Are You Sure You Want to Delete this student data?", QMessageBox.Yes | QMessageBox.No)
-        if warning == QMessageBox.Yes :
-            sql = '''DELETE FROM students WHERE student_name=%s'''
-            self.cur.execute(sql, [(studentname)])
-            self.db.commit()
-            self.statusBar().showMessage('Student Data Deleted Sucessfully!')
-            self.lineEdit_24.setText('')
-            self.lineEdit_26.setText('')
-            self.lineEdit_35.setText('')
-            self.lineEdit_33.setText('')
-            self.lineEdit_34.setText('')
-            self.lineEdit_27.setText('')
-            self.Show_All_Students()
+        except:
+            pass
 
+############################
+    ######STUDENTS END################
 
 def main():
     app = QApplication(sys.argv)
