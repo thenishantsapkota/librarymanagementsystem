@@ -2,10 +2,11 @@
 
 _Use Instructions_
 
-```You first have to setup all the databases to use it, so not so user friendly right now!```
+```Just import the sql file in to your database and you gucci```
 
 _Just a fun little Project_
 
-_Cheeers if you want to setup a database exactly as I did and use this but I suggest not using this_
 
-_Contribute to this repo if you setup the DB and want to improve the code a bit_
+_Contribute to this repo if you want to improve the code a bit_
+
+_New code coming soon with ORM Wrapper (SQL ALchemy)_
